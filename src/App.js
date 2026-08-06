@@ -64,8 +64,9 @@ function ComfortCalculator() {
         <div className="container">
           <div className="intro-section">
             <h2>Calculate Your Comfort Income</h2>
-            <p>Discover the income you need to live comfortably anywhere in the world. 
-               Our advanced calculator uses real-time cost of living data and your personalized lifestyle preferences.</p>
+            <p>Discover the income you need to live comfortably in cities around the world.
+               This calculator uses published cost-of-living indices (New York = 100) and your
+               lifestyle preferences to estimate a comfortable income.</p>
           </div>
 
           <GlobalLocationSelector
@@ -145,8 +146,10 @@ function ComfortCalculator() {
       </main>
 
       <footer className="footer">
-        <p>🌍 Global cost of living data • AI-powered insights • Personalized calculations</p>
-        <p className="disclaimer">Estimates are based on average costs and may vary based on lifestyle and personal circumstances.</p>
+        <p>🌍 Cost-of-living indices for cities worldwide • Personalized to your lifestyle</p>
+        <p className="disclaimer">Illustrative and educational only. Estimates are based on published average
+           cost-of-living indices (New York = 100) and general assumptions, and are not a quote, recommendation,
+           or financial, tax, or legal advice. Actual costs vary by lifestyle and personal circumstances.</p>
       </footer>
     </div>
   );
