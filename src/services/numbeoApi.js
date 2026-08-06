@@ -1,113 +1,67 @@
-// import axios from 'axios';
+// Comfort income calculation.
+// Cost of living is driven by a real, calibrated cost-of-living index (New York City = 100)
+// held in ../data/costOfLivingIndex.js. We scale a New York baseline of comfortable monthly
+// costs by each city's index, then apply the user's lifestyle choices. This is illustrative /
+// educational, based on published cost-of-living indices — not a live data feed or a quote.
 
-// Numbeo API endpoint (for future use with API key)
-// const NUMBEO_API_BASE = 'https://www.numbeo.com/api';
+import { getColIndex } from '../data/costOfLivingIndex';
 
 /**
- * Fetch cost of living data from Numbeo API
- * Note: Numbeo's free API has limitations. This implementation uses their public data structure.
- * For production use, you may need to sign up for an API key at https://www.numbeo.com/common/api.jsp
+ * Public entry point kept for backward compatibility with existing imports.
  */
 export const fetchCostOfLiving = async (city, country, lifestyleOptions = {}) => {
   try {
-    // Since Numbeo's free API is limited, we'll use a combination of their public data
-    // and calculations based on typical cost of living patterns
-    
-    // For a real implementation with API key, uncomment axios import and use:
-    // const response = await axios.get(`${NUMBEO_API_BASE}/city_prices`, {
-    //   params: {
-    //     api_key: 'YOUR_API_KEY',
-    //     query: city
-    //   }
-    // });
-
-    // Simulated API call with realistic data based on Numbeo's structure
-    const costData = await simulateNumbeoData(city, country);
-    
-    // Calculate recommended income based on cost of living and lifestyle
-    const results = calculateComfortIncome(costData, lifestyleOptions);
-    
-    return results;
+    const costData = await getCityCostData(city, country);
+    return calculateComfortIncome(costData, lifestyleOptions);
   } catch (error) {
-    console.error('Error fetching cost of living data:', error);
-    throw new Error('Unable to fetch cost of living data. Please try again later.');
+    console.error('Error calculating cost of living:', error);
+    throw new Error('Unable to calculate cost of living data. Please try again.');
   }
 };
 
 /**
- * Simulate Numbeo API response with realistic data
- * In production, replace this with actual API calls
+ * Look up the real cost-of-living index for the city (NYC = 100) and build the
+ * component indices used by the breakdown. We use one overall index so results are
+ * transparent and consistent; housing, groceries, dining, etc. all scale with it.
  */
-const simulateNumbeoData = async (city, country) => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
+const getCityCostData = async (city, country) => {
+  // Small, honest delay so the loading state is visible; no network call is made.
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
-  // Cost of living indices for major cities (relative to NYC = 100)
-  const cityData = {
-    // US Cities
-    'New York': { col: 100.0, rent: 100.0, groceries: 100.0, restaurant: 100.0, purchasing: 100.0 },
-    'San Francisco': { col: 95.2, rent: 89.5, groceries: 78.3, restaurant: 82.1, purchasing: 112.3 },
-    'Los Angeles': { col: 77.8, rent: 68.2, groceries: 71.4, restaurant: 73.5, purchasing: 98.7 },
-    'Chicago': { col: 73.9, rent: 61.5, groceries: 70.2, restaurant: 72.8, purchasing: 96.8 },
-    'Miami': { col: 72.5, rent: 62.8, groceries: 68.9, restaurant: 70.2, purchasing: 87.3 },
-    'Seattle': { col: 82.6, rent: 72.3, groceries: 74.8, restaurant: 78.5, purchasing: 108.9 },
-    'Boston': { col: 84.2, rent: 75.8, groceries: 76.3, restaurant: 79.8, purchasing: 105.7 },
-    'Austin': { col: 68.5, rent: 55.8, groceries: 65.3, restaurant: 67.2, purchasing: 102.3 },
-    
-    // International Cities
-    'London': { col: 85.3, rent: 78.9, groceries: 72.4, restaurant: 80.5, purchasing: 92.3 },
-    'Tokyo': { col: 88.5, rent: 65.8, groceries: 85.2, restaurant: 52.3, purchasing: 88.7 },
-    'Paris': { col: 86.2, rent: 72.5, groceries: 78.9, restaurant: 75.3, purchasing: 89.5 },
-    'Sydney': { col: 83.7, rent: 70.5, groceries: 76.8, restaurant: 78.2, purchasing: 105.3 },
-    'Toronto': { col: 72.8, rent: 62.3, groceries: 68.5, restaurant: 65.8, purchasing: 94.2 },
-    'Singapore': { col: 91.2, rent: 88.5, groceries: 72.3, restaurant: 65.8, purchasing: 98.7 },
-    'Dubai': { col: 75.8, rent: 68.2, groceries: 65.3, restaurant: 70.5, purchasing: 115.8 },
-    'Berlin': { col: 70.5, rent: 58.3, groceries: 62.8, restaurant: 65.2, purchasing: 96.5 },
-    'Mumbai': { col: 32.5, rent: 28.3, groceries: 35.8, restaurant: 25.2, purchasing: 45.8 },
-    'Bangkok': { col: 48.5, rent: 38.2, groceries: 42.5, restaurant: 35.8, purchasing: 62.3 },
-    'Mexico City': { col: 42.8, rent: 35.5, groceries: 38.9, restaurant: 40.2, purchasing: 58.7 },
-  };
+  const col = getColIndex(city, country);
 
-  // Get city data or use default (NYC)
-  const data = cityData[city] || { 
-    col: 70.0, 
-    rent: 65.0, 
-    groceries: 70.0, 
-    restaurant: 68.0, 
-    purchasing: 90.0 
-  };
-  
   return {
-    costOfLivingIndex: data.col,
-    rentIndex: data.rent,
-    groceriesIndex: data.groceries,
-    restaurantPriceIndex: data.restaurant,
-    localPurchasingPowerIndex: data.purchasing,
-    city: city,
-    country: country
+    costOfLivingIndex: col,
+    rentIndex: col,
+    groceriesIndex: col,
+    restaurantPriceIndex: col,
+    // Rough purchasing-power proxy relative to NYC; display only, not used in the math.
+    localPurchasingPowerIndex: Math.round(Math.min(120, 40 + col * 0.6)),
+    city,
+    country
   };
 };
 
 /**
- * Calculate comfortable income based on cost of living data and lifestyle options
+ * Calculate comfortable income based on cost of living data and lifestyle options.
  */
 const calculateComfortIncome = (costData, lifestyleOptions = {}) => {
   const { costOfLivingIndex, rentIndex, groceriesIndex, restaurantPriceIndex } = costData;
 
-  // Base monthly costs in NYC (used as reference point)
+  // Baseline monthly cost of a comfortable life in New York (NYC index = 100).
   const nycBaseCosts = {
-    rent: 3500,           // 1-bedroom apartment in city center
-    groceries: 600,       // Monthly groceries
-    utilities: 200,       // Electricity, heating, water, garbage
-    transportation: 150,  // Public transport pass
-    dining: 500,          // Restaurants and takeout
-    entertainment: 300,   // Movies, gym, activities
-    healthcare: 250,      // Health insurance and medical expenses
-    miscellaneous: 400,   // Miscellaneous expenses
-    savings: 800          // Savings
+    rent: 3500,          // 1-bedroom in/near the city center
+    groceries: 600,
+    utilities: 200,
+    transportation: 150,
+    dining: 500,
+    entertainment: 300,
+    healthcare: 250,
+    miscellaneous: 400,
+    savings: 800
   };
 
-  // Adjust costs based on indexes
+  // Scale each category by the relevant index (all tied to the city's overall COL index).
   const adjustedCosts = {
     rent: Math.round((nycBaseCosts.rent * rentIndex) / 100),
     groceries: Math.round((nycBaseCosts.groceries * groceriesIndex) / 100),
@@ -120,19 +74,16 @@ const calculateComfortIncome = (costData, lifestyleOptions = {}) => {
     savings: Math.round((nycBaseCosts.savings * costOfLivingIndex) / 100)
   };
 
-  // Calculate lifestyle adjustments
   const lifestyleAdjustments = calculateLifestyleAdjustments(lifestyleOptions, costOfLivingIndex);
 
-  // Calculate total monthly cost including lifestyle
   const baseMonthlyCost = Object.values(adjustedCosts).reduce((sum, cost) => sum + cost, 0);
   const totalMonthlyCost = baseMonthlyCost + lifestyleAdjustments.totalAdjustment;
 
-  // Adjust tax buffer based on savings rate
+  // Buffer for taxes / savings target.
   const taxBuffer = getSavingsMultiplier(lifestyleOptions.savingsRate || 'moderate');
   const monthlyIncomeNeeded = Math.round(totalMonthlyCost * taxBuffer);
   const annualIncomeNeeded = monthlyIncomeNeeded * 12;
 
-  // Prepare breakdown for display
   const breakdown = [
     { category: 'Housing', amount: adjustedCosts.rent, icon: '🏠' },
     { category: 'Groceries', amount: adjustedCosts.groceries, icon: '🥕' },
@@ -145,9 +96,8 @@ const calculateComfortIncome = (costData, lifestyleOptions = {}) => {
     { category: 'Other', amount: adjustedCosts.miscellaneous, icon: '📦' }
   ];
 
-  // Add lifestyle adjustments to breakdown if any
   if (lifestyleAdjustments.details.length > 0) {
-    lifestyleAdjustments.details.forEach(adjustment => {
+    lifestyleAdjustments.details.forEach((adjustment) => {
       breakdown.push({
         category: adjustment.category,
         amount: adjustment.amount,
@@ -170,269 +120,101 @@ const calculateComfortIncome = (costData, lifestyleOptions = {}) => {
 };
 
 /**
- * Calculate lifestyle adjustments based on user preferences
+ * Calculate lifestyle adjustments based on user preferences.
  */
 function calculateLifestyleAdjustments(options, colIndex) {
-  const adjustments = {
-    totalAdjustment: 0,
-    details: []
-  };
+  const adjustments = { totalAdjustment: 0, details: [] };
+  const scale = (v) => Math.round(v * (colIndex / 100));
 
-  // Pet adjustments
   if (options.dogs > 0) {
-    const dogCost = Math.round((options.dogs * 100) * (colIndex / 100));
-    adjustments.totalAdjustment += dogCost;
-    adjustments.details.push({
-      category: `Pets (${options.dogs} dog${options.dogs > 1 ? 's' : ''})`,
-      amount: dogCost,
-      icon: '🐕',
-      description: `Monthly cost for ${options.dogs} dog${options.dogs > 1 ? 's' : ''}`
-    });
+    const c = scale(options.dogs * 100);
+    adjustments.totalAdjustment += c;
+    adjustments.details.push({ category: `Pets (${options.dogs} dog${options.dogs > 1 ? 's' : ''})`, amount: c, icon: '🐕', description: `Monthly cost for ${options.dogs} dog${options.dogs > 1 ? 's' : ''}` });
   }
-
   if (options.cats > 0) {
-    const catCost = Math.round((options.cats * 50) * (colIndex / 100));
-    adjustments.totalAdjustment += catCost;
-    adjustments.details.push({
-      category: `Pets (${options.cats} cat${options.cats > 1 ? 's' : ''})`,
-      amount: catCost,
-      icon: '🐈',
-      description: `Monthly cost for ${options.cats} cat${options.cats > 1 ? 's' : ''}`
-    });
+    const c = scale(options.cats * 50);
+    adjustments.totalAdjustment += c;
+    adjustments.details.push({ category: `Pets (${options.cats} cat${options.cats > 1 ? 's' : ''})`, amount: c, icon: '🐈', description: `Monthly cost for ${options.cats} cat${options.cats > 1 ? 's' : ''}` });
   }
 
-  // Gym membership
-  let gymCost = 0;
-  switch (options.gymMembership) {
-    case 'premium':
-      gymCost = 100;
-      break;
-    case 'standard':
-      gymCost = 50;
-      break;
-    case 'none':
-    default:
-      gymCost = 0;
-  }
+  let gymCost = options.gymMembership === 'premium' ? 100 : options.gymMembership === 'standard' ? 50 : 0;
   if (gymCost > 0) {
-    gymCost = Math.round(gymCost * (colIndex / 100));
+    gymCost = scale(gymCost);
     adjustments.totalAdjustment += gymCost;
-    adjustments.details.push({
-      category: 'Gym Membership',
-      amount: gymCost,
-      icon: '💪',
-      description: `${options.gymMembership} gym membership`
-    });
+    adjustments.details.push({ category: 'Gym Membership', amount: gymCost, icon: '💪', description: `${options.gymMembership} gym membership` });
   }
 
-  // Car ownership
-  let carCost = 0;
-  switch (options.carOwnership) {
-    case 'luxury':
-      carCost = 800;
-      break;
-    case 'standard':
-      carCost = 500;
-      break;
-    case 'economy':
-      carCost = 300;
-      break;
-    case 'none':
-    default:
-      carCost = 0;
-  }
+  let carCost = options.carOwnership === 'luxury' ? 800 : options.carOwnership === 'standard' ? 500 : options.carOwnership === 'economy' ? 300 : 0;
   if (carCost > 0) {
-    carCost = Math.round(carCost * (colIndex / 100));
+    carCost = scale(carCost);
     adjustments.totalAdjustment += carCost;
-    adjustments.details.push({
-      category: 'Car Ownership',
-      amount: carCost,
-      icon: '🚗',
-      description: `${options.carOwnership} car payment and insurance`
-    });
+    adjustments.details.push({ category: 'Car Ownership', amount: carCost, icon: '🚗', description: `${options.carOwnership} car payment and insurance` });
   }
 
-  // Children
   if (options.children > 0) {
-    const childCost = Math.round((options.children * 1000) * (colIndex / 100));
-    adjustments.totalAdjustment += childCost;
-    adjustments.details.push({
-      category: `Children (${options.children})`,
-      amount: childCost,
-      icon: '👶',
-      description: `Monthly cost for ${options.children} child${options.children > 1 ? 'ren' : ''}`
-    });
+    const c = scale(options.children * 1000);
+    adjustments.totalAdjustment += c;
+    adjustments.details.push({ category: `Children (${options.children})`, amount: c, icon: '👶', description: `Monthly cost for ${options.children} child${options.children > 1 ? 'ren' : ''}` });
   }
 
-  // Student loans
   if (options.studentLoans > 0) {
     adjustments.totalAdjustment += options.studentLoans;
-    adjustments.details.push({
-      category: 'Student Loans',
-      amount: options.studentLoans,
-      icon: '🎓',
-      description: 'Monthly student loan payment'
-    });
+    adjustments.details.push({ category: 'Student Loans', amount: options.studentLoans, icon: '🎓', description: 'Monthly student loan payment' });
   }
 
-  // Dining frequency
-  let diningMultiplier = 1.0;
-  switch (options.diningFrequency) {
-    case 'frequent':
-      diningMultiplier = 1.5;
-      break;
-    case 'moderate':
-      diningMultiplier = 1.0;
-      break;
-    case 'rare':
-      diningMultiplier = 0.5;
-      break;
-    default:
-      diningMultiplier = 1.0;
-  }
+  let diningMultiplier = options.diningFrequency === 'frequent' ? 1.5 : options.diningFrequency === 'rare' ? 0.5 : 1.0;
   const diningAdjustment = Math.round((diningMultiplier - 1) * 300 * (colIndex / 100));
   if (diningAdjustment !== 0) {
     adjustments.totalAdjustment += diningAdjustment;
-    adjustments.details.push({
-      category: 'Dining Adjustment',
-      amount: diningAdjustment,
-      icon: '🍽️',
-      description: `${options.diningFrequency} dining out frequency`
-    });
+    adjustments.details.push({ category: 'Dining Adjustment', amount: diningAdjustment, icon: '🍽️', description: `${options.diningFrequency} dining out frequency` });
   }
 
-  // Streaming services
   if (options.streamingServices > 0) {
-    const streamingCost = Math.round((options.streamingServices * 15) * (colIndex / 100));
-    adjustments.totalAdjustment += streamingCost;
-    adjustments.details.push({
-      category: 'Streaming Services',
-      amount: streamingCost,
-      icon: '📺',
-      description: `${options.streamingServices} streaming service${options.streamingServices > 1 ? 's' : ''}`
-    });
+    const c = scale(options.streamingServices * 15);
+    adjustments.totalAdjustment += c;
+    adjustments.details.push({ category: 'Streaming Services', amount: c, icon: '📺', description: `${options.streamingServices} streaming service${options.streamingServices > 1 ? 's' : ''}` });
   }
 
-  // Coffee habit
-  let coffeeCost = 0;
-  switch (options.coffeeHabit) {
-    case 'daily':
-      coffeeCost = 100;
-      break;
-    case 'occasional':
-      coffeeCost = 30;
-      break;
-    case 'none':
-    default:
-      coffeeCost = 0;
-  }
+  let coffeeCost = options.coffeeHabit === 'daily' ? 100 : options.coffeeHabit === 'occasional' ? 30 : 0;
   if (coffeeCost > 0) {
-    coffeeCost = Math.round(coffeeCost * (colIndex / 100));
+    coffeeCost = scale(coffeeCost);
     adjustments.totalAdjustment += coffeeCost;
-    adjustments.details.push({
-      category: 'Coffee Habit',
-      amount: coffeeCost,
-      icon: '☕',
-      description: `${options.coffeeHabit} coffee consumption`
-    });
+    adjustments.details.push({ category: 'Coffee Habit', amount: coffeeCost, icon: '☕', description: `${options.coffeeHabit} coffee consumption` });
   }
 
-  // Travel budget
-  let travelCost = 0;
-  switch (options.travelBudget) {
-    case 'luxury':
-      travelCost = 500;
-      break;
-    case 'moderate':
-      travelCost = 250;
-      break;
-    case 'budget':
-      travelCost = 100;
-      break;
-    case 'none':
-    default:
-      travelCost = 0;
-  }
+  let travelCost = options.travelBudget === 'luxury' ? 500 : options.travelBudget === 'moderate' ? 250 : options.travelBudget === 'budget' ? 100 : 0;
   if (travelCost > 0) {
-    travelCost = Math.round(travelCost * (colIndex / 100));
+    travelCost = scale(travelCost);
     adjustments.totalAdjustment += travelCost;
-    adjustments.details.push({
-      category: 'Travel Budget',
-      amount: travelCost,
-      icon: '✈️',
-      description: `${options.travelBudget} travel budget`
-    });
+    adjustments.details.push({ category: 'Travel Budget', amount: travelCost, icon: '✈️', description: `${options.travelBudget} travel budget` });
   }
 
-  // Shopping
-  let shoppingCost = 0;
-  switch (options.shopping) {
-    case 'frequent':
-      shoppingCost = 400;
-      break;
-    case 'moderate':
-      shoppingCost = 200;
-      break;
-    case 'minimal':
-      shoppingCost = 50;
-      break;
-    default:
-      shoppingCost = 0;
-  }
+  let shoppingCost = options.shopping === 'frequent' ? 400 : options.shopping === 'moderate' ? 200 : options.shopping === 'minimal' ? 50 : 0;
   if (shoppingCost > 0) {
-    shoppingCost = Math.round(shoppingCost * (colIndex / 100));
+    shoppingCost = scale(shoppingCost);
     adjustments.totalAdjustment += shoppingCost;
-    adjustments.details.push({
-      category: 'Shopping',
-      amount: shoppingCost,
-      icon: '🛍️',
-      description: `${options.shopping} shopping habits`
-    });
+    adjustments.details.push({ category: 'Shopping', amount: shoppingCost, icon: '🛍️', description: `${options.shopping} shopping habits` });
   }
 
-  // Hobbies
-  let hobbyCost = 0;
-  switch (options.hobbies) {
-    case 'expensive':
-      hobbyCost = 300;
-      break;
-    case 'active':
-      hobbyCost = 200;
-      break;
-    case 'moderate':
-      hobbyCost = 100;
-      break;
-    default:
-      hobbyCost = 0;
-  }
+  let hobbyCost = options.hobbies === 'expensive' ? 300 : options.hobbies === 'active' ? 200 : options.hobbies === 'moderate' ? 100 : 0;
   if (hobbyCost > 0) {
-    hobbyCost = Math.round(hobbyCost * (colIndex / 100));
+    hobbyCost = scale(hobbyCost);
     adjustments.totalAdjustment += hobbyCost;
-    adjustments.details.push({
-      category: 'Hobbies',
-      amount: hobbyCost,
-      icon: '🎨',
-      description: `${options.hobbies} hobby expenses`
-    });
+    adjustments.details.push({ category: 'Hobbies', amount: hobbyCost, icon: '🎨', description: `${options.hobbies} hobby expenses` });
   }
 
   return adjustments;
 }
 
 /**
- * Get savings multiplier based on savings rate preference
+ * Buffer applied on top of raw living costs to account for taxes and a savings target.
  */
 function getSavingsMultiplier(savingsRate) {
-  // Higher savings rate requires higher income to maintain the same lifestyle
   switch (savingsRate) {
-    case 'aggressive':
-      return 1.5; // 50% of income goes to savings
-    case 'moderate':
-      return 1.3; // 30% of income goes to savings
-    case 'minimal':
-      return 1.15; // 15% of income goes to savings
+    case 'aggressive': return 1.5;
+    case 'moderate': return 1.3;
+    case 'minimal': return 1.15;
     case 'none':
-    default:
-      return 1.0; // No savings
+    default: return 1.0;
   }
 }
